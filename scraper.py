@@ -4,15 +4,42 @@ from bs4 import BeautifulSoup
 import lxml
 
 # Add global variables here:
+unique_urls = set()
+num_words_per_url = {}
+common_word_frequencies = {}
+subdomains = {}
 
+stopwords = [
+    "a",          "about",      "above",      "after",
+    "again",      "against",    "all",        "am",
+    "an",         "and",        "any",        "are",
+    "aren't",     "as",         "at",         "be",
+    "because",    "been",       "before",     "being",
+    "below",      "between",    "both",       "but",
+    "by",         "can't",      "cannot",     "could",
+    "couldn't",   "did",        "didn't",     "do",
+    "does",       "doesn't",    "doing",      "don't",
+    "down",       "during",     "each",       "few",
+    "for",        "from",       "further",    "had",
+    "hadn't",     "has",        "hasn't",     "have",
+    "haven't",    "having",     "he",         "he'd",
+    "he'll",      "he's",       "her",        "here",
+    "here's",     "hers",       "herself",    "him",
+    "himself",    "his",        "how",        "how's",
+    "i",          "i'd",        "i'll",       "i'm",
+    "i've",       "if",         "in",         "into",
+    "is",         "isn't",      "it",         "it's",
+    "its",        "itself",     "let's",      "me",
+    "more",       "most",       "mustn't",    "my",
+    "myself",     "no",         "nor",        "not",
+    "of",         "off",        "on",         "once",
+    "only",       "or",         "other",      "ought",
+    "our",        "ours"
+]
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
-
-def is_too_large():
-    # Return true if the file is too large, and return false otherwise
-    pass
 
 def has_informative_content():
     # Return true if the page has high textual information content, and return false otherwise
@@ -20,6 +47,14 @@ def has_informative_content():
 
 def is_a_trap():
     # Return true is the site is a crawler trap, and return false otherwise
+    pass
+
+def is_page_similar():
+    # Return true if the page is too similar to a previously crawled page, adn return false otherwise
+    pass
+
+def is_too_large():
+    # Return true if the file is too large, and return false otherwise
     pass
 
 def extract_next_links(url, resp):
