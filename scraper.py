@@ -84,6 +84,9 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # Create a list that will hold all links extracted from the page
+    if is_too_large(resp):
+        return links
+    
     links = list()
 
     # Return an empty list if the status code is not 200
