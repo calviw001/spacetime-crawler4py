@@ -44,9 +44,19 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def has_informative_content():
+def has_informative_content(Info):
+    
+    words = info.lower().split()
+    meaningful_count = 0 
+
+    for w in words:
+        w = w.strip(".,!?;:\"()[]")
+        if w and w not in stopwords:
+            meaningful_count += 1
+
+    return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content
+    
     # Return true if the page has high textual information content, and return false otherwise
-    pass
 
 def is_a_trap():
     # Return true is the site is a crawler trap, and return false otherwise
