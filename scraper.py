@@ -66,9 +66,11 @@ def is_page_similar(page_text):
         hashes.add(page_hash)
         return False
 
-def is_too_large():
+def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
-    pass
+    if not resp.raw_response or not resp.raw_response.content:
+        return 0
+    return len(resp.raw_response.content) > 2_000_000 #2MB but still have to check with TA
 
 def extract_next_links(url, resp):
     # Implementation required.
