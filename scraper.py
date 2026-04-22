@@ -121,6 +121,10 @@ def extract_next_links(url, resp):
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
         # print(webpage_text)
 
+        #checking for good content
+        if not has_informative_content(webpage_text):
+            return links
+
         # If the webpage text is too similar/is identical to some previous webpage text that was already scraped, then return an empty list
         if is_page_similar(webpage_text):
             return links  
