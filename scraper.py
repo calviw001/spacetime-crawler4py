@@ -70,6 +70,12 @@ def is_too_large():
     # Return true if the file is too large, and return false otherwise
     pass
 
+def word_has_no_digits(word):
+    # Return true if the given word has no digits 0-9, and return false otherwise
+    if any(char.isdigit() for char in word):
+        return False
+    return True
+
 def extract_next_links(url, resp):
     # Implementation required.
     # url: the URL that was used to get the page
@@ -104,11 +110,15 @@ def extract_next_links(url, resp):
 
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
-        # print(webpage_text)
 
         # If the webpage text is too similar/is identical to some previous webpage text that was already scraped, then return an empty list
         if is_page_similar(webpage_text):
             return links  
+
+        # Collect all the words from the webpage INCLUDING stopwords for right now
+        pattern = r"\b\S+\b"
+        all_words = re.findall(pattern, webpage_text)
+        all_words = list((word for word in all_words if word_has_no_digits(word)))
 
         for link in soup.find_all('a'):
             if link:
@@ -172,3 +182,7 @@ def is_valid(url):
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def output_stats():
+    # Will be used to output statistics of the crawler
+    pass
