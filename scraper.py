@@ -70,9 +70,11 @@ def is_too_large():
     # Return true if the file is too large, and return false otherwise
     pass
 
-def word_has_no_digits(word):
-    # Return true if the given word has no digits 0-9, and return false otherwise
+def word_is_valid(word):
+    # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
     if any(char.isdigit() for char in word):
+        return False
+    if not any(char.isalpha() for char in word):
         return False
     return True
 
@@ -117,8 +119,9 @@ def extract_next_links(url, resp):
 
         # Collect all the words from the webpage INCLUDING stopwords for right now
         pattern = r"\b\S+\b"
-        all_words = re.findall(pattern, webpage_text)
-        all_words = list((word for word in all_words if word_has_no_digits(word)))
+        all_words = re.findall(pattern, webpage_text.lower())
+        all_words = list((word for word in all_words if word_is_valid(word)))
+        print(all_words)
 
         for link in soup.find_all('a'):
             if link:
