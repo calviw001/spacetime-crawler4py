@@ -143,6 +143,23 @@ def extract_next_links(url, resp):
         all_words = re.findall(pattern, webpage_text.lower())
         all_words = list((word for word in all_words if word_is_valid(word)))
 
+        # Defragmenting the current URL once for tracking below
+        defragged_url = urldefrag(url)[0]
+        num_words_per_url[defragged_url] = len(all_words)
+
+        # Increasing the count of global frequency of each non-stopword in the page
+        for word in all_words:
+            if word not in stopwords:
+                common_word_frequencies[word] = common_word_frequencies.get(word, 0) + 1
+
+        # For every successfully scraped page it records which subdomain it belongs to and adds its URL to that subdomain's dictionary 
+        parsed_url = urlparse(defragged_url)
+        netloc = parsed_url.netloc.lower()
+        if netloc.endswith('.uci.edu'):
+            if netloc not in subdomains:
+                subdomains[netloc] = 0
+            subdomains[netloc] += 1
+
         # Store all words EXCLUDING stopwords
         content_words_no_stopwords = [word for word in all_words if word not in stopwords]
 
@@ -213,6 +230,31 @@ def is_valid(url):
         print ("TypeError for ", parsed)
         raise
 
-def output_stats():
+def output_stats(filepath="report.txt"):
     # Will be used to output statistics of the crawler
-    pass
+    with open(filepath, "w") as f:
+ 
+        f.write("CRAWL STATISTICS\n\n")
+ 
+        # Unique pages 
+        f.write(f"Total unique pages crawled: {len(unique_urls)}\n\n")
+ 
+        # Longest page by word count 
+        if num_words_per_url:
+            longest_url = max(num_words_per_url, key=num_words_per_url.get)
+            f.write(f"Longest page: {longest_url}\n")
+            f.write(f"  Word count: {num_words_per_url[longest_url]}\n\n")
+        else:
+            f.write("No pages crawled yet.\n\n")
+ 
+        # Top 50 most common words, no stopwords 
+        f.write("Top 50 most common words (stopwords excluded):\n")
+        sorted_words = sorted(common_word_frequencies.items(), key=lambda x: x[1], reverse=True)
+        for rank, (word, freq) in enumerate(sorted_words[:50], start=1):
+            f.write(f"  {rank:>2}. {word} ({freq})\n")
+        f.write("\n")
+ 
+        # Subdomains in alphabetical order
+        f.write("Subdomains found:\n")
+        for subdomain in sorted(subdomains.keys()):
+            f.write(f"  {subdomain}, {subdomains[subdomain]}\n")
