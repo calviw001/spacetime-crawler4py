@@ -1,8 +1,9 @@
 import re
-from urllib.parse import urlparse, urljoin, urldefrag
+from urllib.parse import urlparse, urljoin, urldefrag, parse_qs
 from bs4 import BeautifulSoup
 import lxml
 from hashlib import sha256
+from simhash import simhash, hamming_distance
 
 # Add global variables here:
 unique_urls = set()
@@ -10,7 +11,8 @@ num_words_per_url = {}
 common_word_frequencies = {}
 subdomains = {}
 
-hashes = set()
+hashes = set() # sha256
+simhash_fingerprints = set()
 
 stopwords = set([
     "a",          "about",      "above",      "after",
@@ -44,8 +46,7 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def has_informative_content(Info):
-    
+def has_informative_content():
     words = info.lower().split()
     meaningful_count = 0 
 
@@ -55,18 +56,44 @@ def has_informative_content(Info):
             meaningful_count += 1
 
     return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content
-    
     # Return true if the page has high textual information content, and return false otherwise
 
-def is_a_trap():
-    # Return true is the site is a crawler trap, and return false otherwise
-    pass
+# filters based on params, will update to account for things like sid=au21uh414jc
+def param_filter(parsed_url):
+    bad_params = ['session', 'ssid', 'phpsessid', '_utm', 'ref', 'login']
 
-def is_page_similar(page_text):
-    # Return true if the page is too similar to a previously crawled page, and return false otherwise
+    return not any(param in parsed_url.query.lower() for param in bad_params)
+
+# returns false if URL is too long or has too many paths
+def url_length_depth(parsed_url):
+    depth = len(parsed_url.path.split('/'))
+
+    return not (len(resp.url) > 200 or depth > 10)
+
+# returns false if URL has 3+ repeating paths
+def has_repeating_paths(parsed_url):
+    return not bool(re.search(r"(.+/)\1{2,}", parsed_url.path))
+
+# returns false if there are 5+ queries
+def query_checker(parsed_url):
+    queries = parse_qs(parsed_url.query)
+    return not len(queries) > 5
+
+# returns false if a calendar trap is found
+def has_calendar_trap(resp):
+    url = resp.url.lower()
+    return not bool(re.search(), url)
+
+# Return true is the site is a crawler trap, and return false otherwise
+def is_a_trap(resp):
+    parsed = urlparse(resp.url)
+    return not (param_filter(parsed), url_length_depth(parsed), has_repeating_paths(parsed), query_checker(parsed), has_calendar_trap(resp))
+
+def is_page_duplicate(page_text):
+    # Return true if the page is a duplicate of a previously crawled page, and return false otherwise
 
     # Compute the hash of the provided webpage text
-    text_to_hash = page_text[:10000] if len(page_text) > 10000 else page_text
+    text_to_hash = page_text
     page_hash = sha256(text_to_hash.encode('utf-8')).hexdigest()
     
     # Check if the hash was already seen
@@ -76,11 +103,38 @@ def is_page_similar(page_text):
         hashes.add(page_hash)
         return False
 
-def is_too_large(resp):
+def is_page_near_duplicate(page_words):
+    # Return true if the page is a near duplicate of a previously crawled page, and return false otherwise
+    if not page_words:
+        return False
+    
+    # Compute the fingerprint of the provided webpage words
+    curr_fingerprint = simhash(page_words, hasher="xxh3")
+
+    # Define a threshold value 
+    threshold = 6
+
+    # Check if a near duplicate page already exists using Hamming distance
+    for prev_fingerprint in simhash_fingerprints:
+        if hamming_distance(curr_fingerprint, prev_fingerprint) < threshold:
+            return True
+    
+    simhash_fingerprints.add(curr_fingerprint)
+    return False
+
+def is_too_large():
     # Return true if the file is too large, and return false otherwise
     if not resp.raw_response or not resp.raw_response.content:
         return 0
     return len(resp.raw_response.content) > 2_000_000 #2MB but still have to check with TA
+
+def word_is_valid(word):
+    # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
+    if any(char.isdigit() for char in word):
+        return False
+    if not any(char.isalpha() for char in word):
+        return False
+    return True
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -94,9 +148,6 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # Create a list that will hold all links extracted from the page
-    if is_too_large(resp):
-        return links
-    
     links = list()
 
     # Return an empty list if the status code is not 200
@@ -119,15 +170,22 @@ def extract_next_links(url, resp):
 
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
-        # print(webpage_text)
-
-        #checking for good content
-        if not has_informative_content(webpage_text):
-            return links
 
         # If the webpage text is too similar/is identical to some previous webpage text that was already scraped, then return an empty list
-        if is_page_similar(webpage_text):
+        if is_page_near_duplicate(webpage_text):
             return links  
+
+        # Collect all the words from the webpage INCLUDING stopwords for right now
+        pattern = r"\b\S+\b"
+        all_words = re.findall(pattern, webpage_text.lower())
+        all_words = list((word for word in all_words if word_is_valid(word)))
+
+        # Store all words EXCLUDING stopwords
+        content_words_no_stopwords = [word for word in all_words if word not in stopwords]
+
+        # If the webpage text is a NEAR duplicate of some previous webpage text that was already scraped, then return an empty list
+        if is_page_near_duplicate(content_words_no_stopwords):
+            return links
 
         for link in soup.find_all('a'):
             if link:
@@ -191,3 +249,7 @@ def is_valid(url):
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def output_stats():
+    # Will be used to output statistics of the crawler
+    pass
