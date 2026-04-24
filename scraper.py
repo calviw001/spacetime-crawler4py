@@ -3,6 +3,7 @@ from urllib.parse import urlparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
 import lxml
 from hashlib import sha256
+from simhash import simhash, hamming_distance
 
 # Add global variables here:
 unique_urls = set()
@@ -11,6 +12,7 @@ common_word_frequencies = {}
 subdomains = {}
 
 hashes = set() # sha256
+simhash_fingerprints = set()
 
 stopwords = set([
     "a",          "about",      "above",      "after",
@@ -66,9 +68,24 @@ def is_page_duplicate(page_text):
         hashes.add(page_hash)
         return False
 
-def is_page_near_duplicate():
+def is_page_near_duplicate(page_words):
     # Return true if the page is a near duplicate of a previously crawled page, and return false otherwise
-    pass
+    if not page_words:
+        return False
+    
+    # Compute the fingerprint of the provided webpage words
+    curr_fingerprint = simhash(page_words, hasher="xxh3")
+
+    # Define a threshold value 
+    threshold = 6
+
+    # Check if a near duplicate page already exists using Hamming distance
+    for prev_fingerprint in simhash_fingerprints:
+        if hamming_distance(curr_fingerprint, prev_fingerprint) < threshold:
+            return True
+    
+    simhash_fingerprints.add(curr_fingerprint)
+    return False
 
 def is_too_large():
     # Return true if the file is too large, and return false otherwise
@@ -117,7 +134,7 @@ def extract_next_links(url, resp):
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
-        # If the webpage text is too similar/is identical to some previous webpage text that was already scraped, then return an empty list
+        # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
         if is_page_duplicate(webpage_text):
             return links  
 
@@ -125,7 +142,13 @@ def extract_next_links(url, resp):
         pattern = r"\b\S+\b"
         all_words = re.findall(pattern, webpage_text.lower())
         all_words = list((word for word in all_words if word_is_valid(word)))
-        # print(all_words)
+
+        # Store all words EXCLUDING stopwords
+        content_words_no_stopwords = [word for word in all_words if word not in stopwords]
+
+        # If the webpage text is a NEAR duplicate of some previous webpage text that was already scraped, then return an empty list
+        if is_page_near_duplicate(content_words_no_stopwords):
+            return links
 
         for link in soup.find_all('a'):
             if link:
