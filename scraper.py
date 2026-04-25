@@ -156,6 +156,9 @@ def is_valid(url):
     try:
         parsed = urlparse(url)
 
+        if is_a_trap(url):
+            return False
+
         # print(parsed.netloc)
 
         if parsed.scheme not in set(["http", "https"]):
