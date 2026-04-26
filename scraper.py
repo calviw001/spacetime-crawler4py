@@ -44,7 +44,7 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def has_informative_content(Info):
+def has_informative_content(info):
     
     words = info.lower().split()
     meaningful_count = 0 
@@ -58,7 +58,7 @@ def has_informative_content(Info):
     
     # Return true if the page has high textual information content, and return false otherwise
 
-def is_a_trap():
+def is_a_trap(url):
     # Return true is the site is a crawler trap, and return false otherwise
     pass
 
@@ -94,10 +94,11 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # Create a list that will hold all links extracted from the page
+    links = list()
+
+    # Return an empty list if the response is too large
     if is_too_large(resp):
         return links
-    
-    links = list()
 
     # Return an empty list if the status code is not 200
     if resp.status != 200:
@@ -156,8 +157,8 @@ def is_valid(url):
     try:
         parsed = urlparse(url)
 
-        if is_a_trap(url):
-            return False
+        # if is_a_trap(url):
+        #     return False
 
         # print(parsed.netloc)
 
