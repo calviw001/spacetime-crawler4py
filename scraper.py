@@ -59,8 +59,53 @@ def has_informative_content(info):
     # Return true if the page has high textual information content, and return false otherwise
 
 def is_a_trap(url):
-    # Return true is the site is a crawler trap, and return false otherwise
-    pass
+        # true if the site has some possible traps
+    try:
+        parsed_url = urlparse(url)
+        path = parsed_url.path.lower()
+        query = parsed_url.query.lower()
+
+        # catch Query Parameter Traps such as Wikis, Timelines, and Filters, (possible more sites)
+        # These catch grape.ics.uci.edu/wiki and /people/?filter= traps
+        trap_queries = [
+            r'action=diff',
+            r'action=edit',
+            r'action=download',
+            r'version=',
+            r'from=',
+            r'precision=',
+            r'filter%5b', # Checks URL-encoded "filter["
+            r'filter\['   # Checks unencoded "filter["
+        ]
+        if any(re.search(pattern, query) for pattern in trap_queries):
+            return True
+
+        # checks paths like /2012/09/ which trap you in old news, as Lopes mentioned in class
+        if re.search(r'/\d{4}/\d{2}/', path):
+            return True
+        
+        # Pagination
+        # avoiding infinite scrolling through /category/aiml/page/50/
+        if re.search(r'/page/\d+', path):
+            return True
+
+
+        # Split the path into parts and if too depth maybe trap, (ignoring empty strings)
+        path_parts = [part for part in path.split('/') if part]
+        if len(path_parts) > 7: # If 7 (high threadhold
+            return True
+
+        # checks patterns like /a/b/a/b/a/b/, (Repeating Directories)
+        if re.search(r'(/[^/]+)(/.*)?\1\1', path):
+            return True
+
+        return False
+
+    except Exception as e:
+        # If parsing fails for some reason, 'maybe' trap
+        print(f"Maybe trap, failed for this {url}: {e}")
+        return True
+        
 
 def is_page_similar(page_text):
     # Return true if the page is too similar to a previously crawled page, and return false otherwise
