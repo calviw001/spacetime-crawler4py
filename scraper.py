@@ -44,7 +44,18 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def has_informative_content():
+def has_informative_content(info):
+    
+    words = info.lower().split()
+    meaningful_count = 0 
+
+    for w in words:
+        w = w.strip(".,!?;:\"()[]")
+        if w and w not in stopwords:
+            meaningful_count += 1
+
+    return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content
+    
     # Return true if the page has high textual information content, and return false otherwise
     pass
 
@@ -65,9 +76,19 @@ def is_page_duplicate(page_text):
         hashes.add(page_hash)
         return False
 
-def is_too_large():
+def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
-    pass
+    if not resp.raw_response or not resp.raw_response.content:
+        return 0
+    return len(resp.raw_response.content) > 2_000_000 #2MB but still have to check with TA
+
+def word_is_valid(word):
+    # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
+    if any(char.isdigit() for char in word):
+        return False
+    if not any(char.isalpha() for char in word):
+        return False
+    return True
 
 def word_is_valid(word):
     # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
@@ -90,6 +111,10 @@ def extract_next_links(url, resp):
 
     # Create a list that will hold all links extracted from the page
     links = list()
+
+    # Return an empty list if the response is too large
+    if is_too_large(resp):
+        return links
 
     # Return an empty list if the status code is not 200
     if resp.status != 200:
@@ -131,6 +156,10 @@ def extract_next_links(url, resp):
 
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
+
+        #checking for good content
+        if not has_informative_content(webpage_text):
+            return links
 
         # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
         if is_page_duplicate(webpage_text):
@@ -195,6 +224,9 @@ def is_valid(url):
     # There are already some conditions that return False.
     try:
         parsed = urlparse(url)
+
+        # if is_a_trap(url):
+        #     return False
 
         # print(parsed.netloc)
 
