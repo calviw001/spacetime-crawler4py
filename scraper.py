@@ -95,15 +95,35 @@ def extract_next_links(url, resp):
     if resp.status != 200:
         return links
 
+    # Return an empty list if there is no webpage content
+    if not resp.raw_response or not resp.raw_response.content:
+        return links
+
     # Get the webpage content
     page_content = resp.raw_response.content
 
-    # Return an empty list if there is no webpage content
-    if not resp.raw_response or not page_content:
-        return links
+    # Get the encoding from the raw response
+    encoding = resp.raw_response.encoding 
+
+    # If encoding equals None, then default to utf-8 because that's the most common encoding used 
+    if not encoding:
+        encoding = 'utf-8'
 
     try:
-        soup = BeautifulSoup(page_content, 'lxml')
+        # Try decoding the bytes using the encoding provided from the raw response
+        decoded = page_content.decode(encoding)
+
+    except (UnicodeDecodeError, LookupError):
+        # If the bytes failed to match the encoding, or the encoding name was unrecognized...
+        try:
+            # ...then try to fallback to using utf-8 with forgiveness...
+            decoded = page_content.decode('utf-8', errors='replace')
+        except Exception:
+            # ...and then try to to use Latin-1 with forgiveness as a last resort.
+            decoded = page_content.decode('latin-1', errors='replace')
+
+    try:
+        soup = BeautifulSoup(decoded, 'lxml')
         
         # Remove all HTML tags that usually don't hold text content
         for non_content_tag in soup(["script", "style", "img", "header", "footer", "nav"]):
