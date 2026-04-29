@@ -56,7 +56,7 @@ def has_informative_content(info):
         if w and w not in stopwords:
             meaningful_count += 1
 
-    return meaningful_count > 100   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
+    return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
     
 # checks for noisy query parameters with long strings and many digits
 # CURRENTLY NOT BEING USED
