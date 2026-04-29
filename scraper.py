@@ -9,7 +9,7 @@ from collections import defaultdict
 unique_urls = set()
 num_words_per_url = {}
 common_word_frequencies = {}
-subdomains = {}
+subdomains = defaultdict(set)
 
 hashes = set()
 version_counts = defaultdict(int)
@@ -73,7 +73,7 @@ def has_dynamic_params(query):
 # filters based on known trap query and paths
 def param_filter(query, path):
     blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy='] #, '_utm', 'ref', 'search']
-    blocked_paths = ['/login', '/admin', '/private', '/people/'] #, '/cs122', '/events'] if /events, also check for calendar trap
+    blocked_paths = ['/login', '/admin', '/private', '/people/', '/raw-attachment/', '/zip-attachment/'] #, '/cs122', '/events'] if /events, also check for calendar trap
 
     if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): #or has_dynamic_params(query):
         return False
@@ -117,10 +117,11 @@ def variants_trap(path, query):
         if version_counts[path] > 5:
             return False
 
+    base_path = re.sub(r'/page/\d+', '', path)
     if re.search(r'/page/\d+', path):
-        page_counts[path] += 1
+        page_counts[base_path] += 1
 
-        if page_counts[path] > 5:
+        if page_counts[base_path] > 5:
             return False
     
     return True
@@ -213,8 +214,14 @@ def extract_next_links(url, resp):
     if is_too_large(resp):
         return links
 
-    # Return an empty list if the status code is not 200
-    if resp.status != 200:
+    # Explicity return an empty links for additional status codes!:
+    if resp.status in {400, 401, 402, 403, 404, 600, 601, 602, 603, 604, 605, 607, 608}:
+        return links
+
+    # Continue with the function if the status code is 200, and return an empty list if it is not 200
+    if resp.status == 200:
+        pass  # process normally
+    else:
         return links
 
     # Return an empty list if there is no webpage content
@@ -285,9 +292,7 @@ def extract_next_links(url, resp):
         parsed_url = urlparse(defragged_url)
         netloc = parsed_url.netloc.lower()
         if netloc.endswith('.uci.edu'):
-            if netloc not in subdomains:
-                subdomains[netloc] = 0
-            subdomains[netloc] += 1
+            subdomains[netloc].add(defragged_url)
 
         # Store all words EXCLUDING stopwords
         content_words_no_stopwords = [word for word in all_words if word not in stopwords]
@@ -339,7 +344,9 @@ def is_valid(url):
         is_an_allowed_domain = False
 
         for each_domain in domains:
-            if each_domain == url_domain or url_domain.endswith(each_domain):
+            # Example: cecs.uci.edu.endswith(cs.uci.edu) is True which is not what we want! 
+            # Fix it by requiring a dot before the domain!
+            if each_domain == url_domain or url_domain.endswith('.' + each_domain):
                 is_an_allowed_domain = True
                 break
 

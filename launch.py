@@ -35,7 +35,7 @@ def output_stats(filepath="report.txt"):
         f.write(f"Total unique subdomains: {len(scraper.subdomains)}\n")
         f.write("Subdomains found:\n")
         for subdomain in sorted(scraper.subdomains.keys()):
-            f.write(f"{subdomain}, {scraper.subdomains[subdomain]}\n")
+            f.write(f"{subdomain}, {len(scraper.subdomains[subdomain])}\n")
         f.write("\n")
 
         #Total Runtime
