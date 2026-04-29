@@ -59,8 +59,6 @@ def has_informative_content(info):
 
     return meaningful_count > 100   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
     
-    # Return true if the page has high textual information content, and return false otherwise
-
 # checks for noisy query parameters with long strings and many digits
 # CURRENTLY NOT BEING USED
 def has_dynamic_params(query):
