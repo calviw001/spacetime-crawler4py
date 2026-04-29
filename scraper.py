@@ -261,41 +261,41 @@ def extract_next_links(url, resp):
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
-        # Checking for good content
-        if not has_informative_content(webpage_text):
-            return links
+        # # Checking for good content
+        # if not has_informative_content(webpage_text):
+        #     return links
 
         # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
         if is_page_duplicate(webpage_text):
             return links  
 
-        # Collect all the words from the webpage INCLUDING stopwords for right now
-        pattern = r"\b\S+\b"
-        all_words = re.findall(pattern, webpage_text.lower())
-        all_words = list((word for word in all_words if word_is_valid(word)))
+        # Generate statistics for the webpages IF the webpage has informative content
+        if has_informative_content(webpage_text):
 
-        # Defragmenting the current URL once for tracking below
-        defragged_url = urldefrag(url)[0]
+            # Collect all the words from the webpage INCLUDING stopwords for right now
+            pattern = r"\b\S+\b"
+            all_words = re.findall(pattern, webpage_text.lower())
+            all_words = list((word for word in all_words if word_is_valid(word)))
 
-        # Track unique url
-        unique_urls.add(defragged_url)
+            # Defragmenting the current URL once for tracking below
+            defragged_url = urldefrag(url)[0]
 
-        # Track word count per webpage INCLUDING stopwords
-        num_words_per_url[defragged_url] = len(all_words)
+            # Track unique url
+            unique_urls.add(defragged_url)
 
-        # Increasing the count of global frequency of each word in the webpage EXCLUDING stopwords
-        for word in all_words:
-            if word not in stopwords:
-                common_word_frequencies[word] = common_word_frequencies.get(word, 0) + 1
+            # Track word count per webpage INCLUDING stopwords
+            num_words_per_url[defragged_url] = len(all_words)
 
-        # For every successfully scraped webpage it records which subdomain it belongs to and adds its URL to that subdomain's dictionary 
-        parsed_url = urlparse(defragged_url)
-        netloc = parsed_url.netloc.lower()
-        if netloc.endswith('.uci.edu'):
-            subdomains[netloc].add(defragged_url)
+            # Increasing the count of global frequency of each word in the webpage EXCLUDING stopwords
+            for word in all_words:
+                if word not in stopwords:
+                    common_word_frequencies[word] = common_word_frequencies.get(word, 0) + 1
 
-        # Store all words EXCLUDING stopwords
-        content_words_no_stopwords = [word for word in all_words if word not in stopwords]
+            # For every successfully scraped webpage it records which subdomain it belongs to and adds its URL to that subdomain's dictionary 
+            parsed_url = urlparse(defragged_url)
+            netloc = parsed_url.netloc.lower()
+            if netloc.endswith('.uci.edu'):
+                subdomains[netloc].add(defragged_url)
 
         for link in soup.find_all('a'):
             if link:
