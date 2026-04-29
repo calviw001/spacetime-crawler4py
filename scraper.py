@@ -123,10 +123,12 @@ def is_too_large(resp):
     return len(resp.raw_response.content) > 2_000_000 
 
 def word_is_valid(word):
-    # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
+    # Return true if the given word has no digits 0-9, contains letters, or is only a single character. Return false otherwise
     if any(char.isdigit() for char in word):
         return False
     if not any(char.isalpha() for char in word):
+        return False
+    if len(word) < 2 and word.lower() not in ['a', 'i', 'o']:  # A, I, and O are the only words that are a single character long.
         return False
     return True
 
