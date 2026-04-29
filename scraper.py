@@ -13,6 +13,7 @@ subdomains = {}
 
 hashes = set()
 version_counts = defaultdict(int)
+page_counts = defaultdict(int)
 
 stopwords = set([
     "a",          "about",      "above",      "after",
@@ -60,22 +61,23 @@ def has_informative_content(info):
     # Return true if the page has high textual information content, and return false otherwise
 
 # checks for noisy query parameters with long strings and many digits
+# CURRENTLY NOT BEING USED
 def has_dynamic_params(query):
     queries = parse_qs(query)
 
     for values in queries.values():
         for val in values:
-            if len(val) > 15 and sum(c.isdigit() for c in val) > 5:
+            if len(val) > 20 and sum(c.isdigit() for c in val) > 7:
                 return True
 
     return False
 
 # filters based on known trap query and paths
 def param_filter(query, path):
-    blocked_queries = ['session', 'ssid', 'phpsessid', '_utm', 'ref', 'search']
-    blocked_paths = ['timeline', 'login']
-    
-    if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths) or has_dynamic_params(query):
+    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy='] #, '_utm', 'ref', 'search']
+    blocked_paths = ['/login', '/admin', '/private', '/people/'] #, '/cs122', '/events'] if /events, also check for calendar trap
+
+    if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): #or has_dynamic_params(query):
         return False
 
     return True
@@ -83,27 +85,32 @@ def param_filter(query, path):
 # checks URL length and path depth
 def url_length_depth(url, path):
     depth = len([p for p in path.split('/') if p])
-    return not (len(url) > 200 or depth > 10)
+    return not (len(url) > 200 or depth > 15)
 
 # detects repeating directory patterns such as /a/a/a and /a/b/a/b/a/b
 def has_repeating_paths(path):
-    straight_repeat = re.search(r"(.+/)\1{2,}", path)
+    '''straight_repeat = re.search(r"(.+/)\1{2,}", path)
     pattern_repeat = re.search(r'(/[^/]+)(/.*)?\1\1', path)
-    return not bool(straight_repeat or pattern_repeat)
+    return not bool(straight_repeat or pattern_repeat)'''
+    parts = path.split('/')
+    if any(parts[i] == parts[i+1] == parts[i+2] for i in range(len(parts)-2)):
+        return False
+
+    return True
 
 # checks for excessive number of query parameters
 def query_checker(query):
     queries = parse_qs(query)
-    return not len(queries) > 5
+    return not len(queries) > 15
 
 # returns false if a date trap is found
 def has_date_trap(path):
     calendar = re.search(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)\d\d$", path)
-    archive = re.search(r'/\d{4}/\d{2}/', path)
-    return not bool(calendar or archive)
+    #archive = re.search(r'/\d{4}/\d{2}/', path)
+    return not bool(calendar)
 
-# prevents downloading of 5+ versions of a single page
-def has_version_trap(path, query):
+# prevents downloading of 5+ variants of a single page
+def variants_trap(path, query):
     queries = parse_qs(query)
 
     if 'version' in queries:
@@ -112,6 +119,12 @@ def has_version_trap(path, query):
         if version_counts[path] > 5:
             return False
 
+    if re.search(r'/page/\d+', path):
+        page_counts[path] += 1
+
+        if page_counts[path] > 5:
+            return False
+    
     return True
 
 # detects CMS traps such as wiki actions, and filters
@@ -120,9 +133,10 @@ def cms_pattern_trap(path, query):
         r'action=diff',
         r'action=edit',
         r'action=download',
-        r'version=',
         r'from=',
         r'precision=',
+        r'ical=1',
+        r'tribe__ecp_custom',
         r'filter%5b', # Checks URL-encoded "filter["
         r'filter\['   # Checks unencoded "filter["
     ]
@@ -130,24 +144,29 @@ def cms_pattern_trap(path, query):
     if any(re.search(pattern, query) for pattern in trap_queries):
         return False
 
-    # Pagination patterns
-    if re.search(r'/page/\d+', path):
-        return False
-
     return True
 
 # Return true is the site is a crawler trap, and return false otherwise
 def is_a_trap(url, parsed):
-    query = parsed.query.lower()
-    path = parsed.path.lower()
-    
-    return not (param_filter(query, path)
-                and url_length_depth(url, path)
-                and has_repeating_paths(path)
-                and query_checker(query)
-                and has_date_trap(path)
-                and has_version_trap(path, query)
-                and cms_pattern_trap(path, query))
+    try:
+        if 'physics.uci.edu' in url:
+            return True
+            
+        query = parsed.query.lower()
+        path = parsed.path.lower()
+
+        return not (param_filter(query, path)
+                    and url_length_depth(url, path) #initial comment
+                    and has_repeating_paths(path)
+                    and query_checker(query) #initial comment
+                    and has_date_trap(path)
+                    and variants_trap(path, query) #increased by 500
+                    and cms_pattern_trap(path, query))
+
+    except Exception as e:
+        # If parsing fails for some reason, 'maybe' trap
+        print(f"Maybe trap, failed for this {url}: {e}")
+        return True
 
 def is_page_duplicate(page_text):
     # Return true if the page is a duplicate of a previously crawled page, and return false otherwise
@@ -186,7 +205,7 @@ def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
     if not resp.raw_response or not resp.raw_response.content:
         return 0
-    return len(resp.raw_response.content) > 2_000_000 #2MB but still have to check with TA
+    return len(resp.raw_response.content) > 10_000_000 #2MB but still have to check with TA
 
 def word_is_valid(word):
     # Return true if the given word has no digits 0-9, contains letters, etc. Return false otherwise
