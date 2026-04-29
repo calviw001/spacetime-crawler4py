@@ -54,7 +54,7 @@ def has_informative_content(info):
         if w and w not in stopwords:
             meaningful_count += 1
 
-    return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content
+    return meaningful_count > 100   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
     
     # Return true if the page has high textual information content, and return false otherwise
 
@@ -124,7 +124,7 @@ def is_page_similar(page_text):
 def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
     if not resp.raw_response or not resp.raw_response.content:
-        return 0
+        return false
     return len(resp.raw_response.content) > 2_000_000 #2MB but still have to check with TA
 
 def extract_next_links(url, resp):
