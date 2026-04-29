@@ -61,16 +61,6 @@ def main(config_file, restart):
         end_time = time.perf_counter()
         total_runtime = end_time - start_time
         output_stats("report.txt")
-    start_time = time.perf_counter()
-    try:
-        crawler.start()
-    except KeyboardInterrupt:
-        print("keyboard interrupt")
-    finally:
-        end_time = time.perf_counter()
-        total_runtime = end_time - start_time
-        output_stats("report.txt")
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()
