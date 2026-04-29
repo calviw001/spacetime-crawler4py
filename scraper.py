@@ -1,8 +1,9 @@
 import re
-from urllib.parse import urlparse, urljoin, urldefrag
+from urllib.parse import urlparse, urljoin, urldefrag, parse_qs
 from bs4 import BeautifulSoup
 import lxml
 from hashlib import sha256
+from collections import defaultdict
 
 # Add global variables here:
 unique_urls = set()
@@ -10,7 +11,9 @@ num_words_per_url = {}
 common_word_frequencies = {}
 subdomains = {}
 
-hashes = set() # sha256
+hashes = set()
+version_counts = defaultdict(int)
+page_counts = defaultdict(int)
 
 stopwords = set([
     "a",          "about",      "above",      "after",
@@ -47,7 +50,7 @@ def scraper(url, resp):
 def has_informative_content(info):
     # Return true if the page has high textual information content, and return false otherwise
     words = info.lower().split()
-    meaningful_count = 0 
+    meaningful_count = 0
 
     for w in words:
         w = w.strip(".,!?;:\"()[]")
@@ -58,52 +61,113 @@ def has_informative_content(info):
     
     # Return true if the page has high textual information content, and return false otherwise
 
-def is_a_trap(url):
-    # Return true is the site is a crawler trap, and return false otherwise
-    try:
-        parsed_url = urlparse(url)
-        path = parsed_url.path.lower()
-        query = parsed_url.query.lower()
+# checks for noisy query parameters with long strings and many digits
+# CURRENTLY NOT BEING USED
+def has_dynamic_params(query):
+    queries = parse_qs(query)
 
-        # catch Query Parameter Traps such as Wikis, Timelines, and Filters, (possible more sites)
-        # These catch grape.ics.uci.edu/wiki and /people/?filter= traps
-        trap_queries = [
-            r'action=diff',
-            r'action=edit',
-            r'action=download',
-            r'version=',
-            r'from=',
-            r'precision=',
-            r'filter%5b', # Checks URL-encoded "filter["
-            r'filter\['   # Checks unencoded "filter["
-        ]
-        if any(re.search(pattern, query) for pattern in trap_queries):
-            return True
+    for values in queries.values():
+        for val in values:
+            if len(val) > 20 and sum(c.isdigit() for c in val) > 7:
+                return True
 
-        # checks paths like /2012/09/ which trap you in old news, as Lopes mentioned in class
-        if re.search(r'/\d{4}/\d{2}/', path):
-            return True
-        
-        # Pagination
-        # avoiding infinite scrolling through /category/aiml/page/50/
-        if re.search(r'/page/\d+', path):
-            return True
+    return False
 
-        # Split the path into parts and if too depth maybe trap, (ignoring empty strings)
-        path_parts = [part for part in path.split('/') if part]
-        if len(path_parts) > 7: # If 7 (high threadhold
-            return True
+# filters based on known trap query and paths
+def param_filter(query, path):
+    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy='] #, '_utm', 'ref', 'search']
+    blocked_paths = ['/login', '/admin', '/private', '/people/'] #, '/cs122', '/events'] if /events, also check for calendar trap
 
-        # checks patterns like /a/b/a/b/a/b/, (Repeating Directories)
-        if re.search(r'(/[^/]+)(/.*)?\1\1', path):
-            return True
-
+    if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): #or has_dynamic_params(query):
         return False
+
+    return True
+
+# checks URL length and path depth
+def url_length_depth(url, path):
+    depth = len([p for p in path.split('/') if p])
+    return not (len(url) > 200 or depth > 15)
+
+# detects repeating directory patterns such as /a/a/a and /a/b/a/b/a/b
+def has_repeating_paths(path):
+    '''straight_repeat = re.search(r"(.+/)\1{2,}", path)
+    pattern_repeat = re.search(r'(/[^/]+)(/.*)?\1\1', path)
+    return not bool(straight_repeat or pattern_repeat)'''
+    parts = path.split('/')
+    if any(parts[i] == parts[i+1] == parts[i+2] for i in range(len(parts)-2)):
+        return False
+
+    return True
+
+# checks for excessive number of query parameters
+def query_checker(query):
+    queries = parse_qs(query)
+    return not len(queries) > 15
+
+# returns false if a date trap is found
+def has_date_trap(path):
+    calendar = re.search(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)\d\d$", path)
+    #archive = re.search(r'/\d{4}/\d{2}/', path)
+    return not bool(calendar)
+
+# prevents downloading of 5+ variants of a single page
+def variants_trap(path, query):
+    queries = parse_qs(query)
+
+    if 'version' in queries:
+        version_counts[path] += 1
+
+        if version_counts[path] > 5:
+            return False
+
+    if re.search(r'/page/\d+', path):
+        page_counts[path] += 1
+
+        if page_counts[path] > 5:
+            return False
+    
+    return True
+
+# detects CMS traps such as wiki actions, and filters
+def cms_pattern_trap(path, query):
+    trap_queries = [
+        r'action=diff',
+        r'action=edit',
+        r'action=download',
+        r'from=',
+        r'precision=',
+        r'ical=1',
+        r'tribe__ecp_custom',
+        r'filter%5b', # Checks URL-encoded "filter["
+        r'filter\['   # Checks unencoded "filter["
+    ]
+
+    if any(re.search(pattern, query) for pattern in trap_queries):
+        return False
+
+    return True
+
+# Return true is the site is a crawler trap, and return false otherwise
+def is_a_trap(url, parsed):
+    try:
+        if 'physics.uci.edu' in url:
+            return True
+            
+        query = parsed.query.lower()
+        path = parsed.path.lower()
+
+        return not (param_filter(query, path)
+                    and url_length_depth(url, path) #initial comment
+                    and has_repeating_paths(path)
+                    and query_checker(query) #initial comment
+                    and has_date_trap(path)
+                    and variants_trap(path, query) #increased by 500
+                    and cms_pattern_trap(path, query))
 
     except Exception as e:
         # If parsing fails for some reason, 'maybe' trap
         print(f"Maybe trap, failed for this {url}: {e}")
-        return True    
+        return True
 
 def is_page_duplicate(page_text):
     # Return true if the webage is a duplicate of a previously crawled webpage, and return false otherwise
@@ -122,7 +186,7 @@ def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
     if not resp.raw_response or not resp.raw_response.content:
         return false
-    return len(resp.raw_response.content) > 2_000_000 
+    return len(resp.raw_response.content) > 10_000_000 
 
 def word_is_valid(word):
     # Return true if the given word has no digits 0-9, contains letters, or is only a single character. Return false otherwise
@@ -255,15 +319,14 @@ def extract_next_links(url, resp):
     return links
 
 def is_valid(url):
-    # Decide whether to crawl this url or not. 
+    # Decide whether to crawl this url or not.
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
     try:
         parsed = urlparse(url)
 
-        if is_a_trap(url):
+        if is_a_trap(url, parsed):
             return False
-
         # print(parsed.netloc)
 
         if parsed.scheme not in set(["http", "https"]):
@@ -282,10 +345,10 @@ def is_valid(url):
             if each_domain == url_domain or url_domain.endswith(each_domain):
                 is_an_allowed_domain = True
                 break
-        
+
         if not is_an_allowed_domain:
             return False
-                
+
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
