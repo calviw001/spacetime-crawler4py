@@ -184,7 +184,7 @@ def is_too_large(resp):
     # Return true if the file is too large, and return false otherwise
     if not resp.raw_response or not resp.raw_response.content:
         return False
-    return len(resp.raw_response.content) > 10_000_000 
+    return len(resp.raw_response.content) > 10 * 1024**2
 
 def word_is_valid(word):
     # Return true if the given word has no digits 0-9, contains letters, or is only a single character. Return false otherwise
