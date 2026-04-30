@@ -60,8 +60,8 @@ def has_informative_content(info):
     
 # filters based on known trap query and paths
 def param_filter(query, path):
-    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy=', 'token', 'sid', 'jsessionid', 'auth']
-    blocked_paths = ['/login', '/admin', '/private', '/raw-attachment/', '/zip-attachment/', '/wp-admin', '/administrator', '/admin/login', '/cgi-bin', '/phpmyadmin'] 
+    blocked_queries = ['session', 'ssid', 'phpsessid', 'sid', 'jsessionid'] #'/datasets?orderBy=', 'token', 'auth'
+    blocked_paths = ['/login', '/private', '/raw-attachment/', '/zip-attachment/', '/wp-admin', '/phpmyadmin'] # '/admin', '/cgi-bin', '/administrator', '/admin/login', 
 
     if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): 
         return False
@@ -71,7 +71,7 @@ def param_filter(query, path):
 # checks URL length and path depth
 def url_length_depth(url, path):
     depth = len([p for p in path.split('/') if p])
-    return not (len(url) > 200 or depth > 15)
+    return not (len(url) > 300 or depth > 40) # OLD (len(url) > 200 or depth > 30)
 
 # detects repeating directory patterns such as /a/a/a and /a/b/a/b/a/b
 def has_repeating_paths(path):
@@ -79,7 +79,7 @@ def has_repeating_paths(path):
     pattern_repeat = re.search(r'(/[^/]+)(/.*)?\1\1', path)
     return not bool(straight_repeat or pattern_repeat)'''
     parts = path.split('/')
-    if any(parts[i] == parts[i+1] == parts[i+2] for i in range(len(parts)-2)):
+    if any(parts[i] == parts[i+1] == parts[i+2] == parts[i+3] for i in range(len(parts)-2)):
         return False
 
     return True
@@ -94,21 +94,21 @@ def has_date_trap(path):
     calendar = re.search(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)\d\d$", path)
     return not bool(calendar)
 
-# prevents downloading of 20+ variants of a single page
+# prevents downloading of many variants of a single page
 def variants_trap(path, query):
     queries = parse_qs(query)
 
     if 'version' in queries:
         version_counts[path] += 1
 
-        if version_counts[path] > 20:
+        if version_counts[path] > 30:
             return False
 
     base_path = re.sub(r'/page/\d+', '', path)
     if re.search(r'/page/\d+', path):
         page_counts[base_path] += 1
 
-        if page_counts[base_path] > 20:
+        if page_counts[base_path] > 30:
             return False
     
     return True
@@ -197,6 +197,10 @@ def extract_next_links(url, resp):
     # Create a list that will hold all links extracted from the page
     links = list()
 
+    # Return an empty list if there is no webpage content
+    if not resp.raw_response or not resp.raw_response.content:
+        return links
+
     # Return an empty list if the response is too large
     if is_too_large(resp):
         return links
@@ -209,10 +213,6 @@ def extract_next_links(url, resp):
     if resp.status == 200:
         pass  # process normally
     else:
-        return links
-
-    # Return an empty list if there is no webpage content
-    if not resp.raw_response or not resp.raw_response.content:
         return links
 
     # Get the webpage content
