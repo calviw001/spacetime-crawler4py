@@ -195,7 +195,7 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # Create a list that will hold all links extracted from the page
-    links = list()
+    links = set()
 
     # Return an empty list if there is no webpage content
     if not resp.raw_response or not resp.raw_response.content:
@@ -249,11 +249,11 @@ def extract_next_links(url, resp):
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
         # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
-        if is_page_duplicate(webpage_text):
-            return links  
+        # if is_page_duplicate(webpage_text):
+        #     return links  
 
-        # Generate statistics for the webpages IF the webpage has informative content
-        if has_informative_content(webpage_text):
+        # Generate statistics for the webpages IF the webpage has informative content AND isn't a duplicate
+        if has_informative_content(webpage_text) and not is_page_duplicate(webpage_text):
 
             # Collect all the words from the webpage INCLUDING stopwords for right now
             pattern = r"\b\S+\b"
@@ -295,7 +295,7 @@ def extract_next_links(url, resp):
                 
                 # Add the new complete url to list of links
                 if complete_url:
-                    links.append(complete_url)
+                    links.add(complete_url)
 
     except Exception as e:
         # Print an error message if fail to extract links
