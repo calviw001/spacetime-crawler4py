@@ -58,24 +58,12 @@ def has_informative_content(info):
 
     return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
     
-# checks for noisy query parameters with long strings and many digits
-# CURRENTLY NOT BEING USED
-def has_dynamic_params(query):
-    queries = parse_qs(query)
-
-    for values in queries.values():
-        for val in values:
-            if len(val) > 20 and sum(c.isdigit() for c in val) > 7:
-                return True
-
-    return False
-
 # filters based on known trap query and paths
 def param_filter(query, path):
-    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy='] #, '_utm', 'ref', 'search']
-    blocked_paths = ['/login', '/admin', '/private', '/people/', '/raw-attachment/', '/zip-attachment/'] #, '/cs122', '/events'] if /events, also check for calendar trap
+    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy=']
+    blocked_paths = ['/login', '/admin', '/private'] #'/people/', '/raw-attachment/', '/zip-attachment/'] #, '/cs122', '/events'] if /events, also check for calendar trap
 
-    if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): #or has_dynamic_params(query):
+    if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): 
         return False
 
     return True
@@ -114,14 +102,14 @@ def variants_trap(path, query):
     if 'version' in queries:
         version_counts[path] += 1
 
-        if version_counts[path] > 5:
+        if version_counts[path] > 20:
             return False
 
     base_path = re.sub(r'/page/\d+', '', path)
     if re.search(r'/page/\d+', path):
         page_counts[base_path] += 1
 
-        if page_counts[base_path] > 5:
+        if page_counts[base_path] > 20:
             return False
     
     return True
@@ -131,13 +119,13 @@ def cms_pattern_trap(path, query):
     trap_queries = [
         r'action=diff',
         r'action=edit',
-        r'action=download',
-        r'from=',
-        r'precision=',
-        r'ical=1',
-        r'tribe__ecp_custom',
-        r'filter%5b', # Checks URL-encoded "filter["
-        r'filter\['   # Checks unencoded "filter["
+        r'action=download'
+        # r'from=',
+        # r'precision=',
+        # r'ical=1',
+        # r'tribe__ecp_custom',
+        # r'filter%5b', # Checks URL-encoded "filter["
+        # r'filter\['   # Checks unencoded "filter["
     ]
 
     if any(re.search(pattern, query) for pattern in trap_queries):
@@ -148,8 +136,8 @@ def cms_pattern_trap(path, query):
 # Return true is the site is a crawler trap, and return false otherwise
 def is_a_trap(url, parsed):
     try:
-        if 'physics.uci.edu' in url:
-            return True
+        # if 'physics.uci.edu' in url:
+        #     return True
             
         query = parsed.query.lower()
         path = parsed.path.lower()
