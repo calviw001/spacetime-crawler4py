@@ -60,8 +60,8 @@ def has_informative_content(info):
     
 # filters based on known trap query and paths
 def param_filter(query, path):
-    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy=']
-    blocked_paths = ['/login', '/admin', '/private'] #'/people/', '/raw-attachment/', '/zip-attachment/'] #, '/cs122', '/events'] if /events, also check for calendar trap
+    blocked_queries = ['session', 'ssid', 'phpsessid', '/datasets?orderBy=', 'token', 'sid', 'jsessionid', 'auth']
+    blocked_paths = ['/login', '/admin', '/private', '/raw-attachment/', '/zip-attachment/', '/wp-admin', '/administrator', '/admin/login', '/cgi-bin', '/phpmyadmin'] 
 
     if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): 
         return False
@@ -89,13 +89,12 @@ def query_checker(query):
     queries = parse_qs(query)
     return not len(queries) > 15
 
-# returns false if a date trap is found
+# returns true if a no date trap is found
 def has_date_trap(path):
     calendar = re.search(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)\d\d$", path)
-    #archive = re.search(r'/\d{4}/\d{2}/', path)
     return not bool(calendar)
 
-# prevents downloading of 5+ variants of a single page
+# prevents downloading of 20+ variants of a single page
 def variants_trap(path, query):
     queries = parse_qs(query)
 
@@ -136,16 +135,13 @@ def cms_pattern_trap(path, query):
 # Return true is the site is a crawler trap, and return false otherwise
 def is_a_trap(url, parsed):
     try:
-        # if 'physics.uci.edu' in url:
-        #     return True
-            
         query = parsed.query.lower()
         path = parsed.path.lower()
 
         return not (param_filter(query, path)
-                    and url_length_depth(url, path) #initial comment
+                    and url_length_depth(url, path) 
                     and has_repeating_paths(path)
-                    and query_checker(query) #initial comment
+                    and query_checker(query) 
                     and has_date_trap(path)
                     and variants_trap(path, query) #increased by 500
                     and cms_pattern_trap(path, query))
@@ -178,10 +174,13 @@ def word_is_valid(word):
     # Return true if the given word has no digits 0-9, contains letters, or is only a single character. Return false otherwise
     if any(char.isdigit() for char in word):
         return False
+
     if not any(char.isalpha() for char in word):
         return False
+
     if len(word) < 2 and word.lower() not in ['a', 'i', 'o']:  # A, I, and O are the only words that are a single character long.
         return False
+
     return True
 
 def extract_next_links(url, resp):
@@ -249,10 +248,6 @@ def extract_next_links(url, resp):
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
-        # # Checking for good content
-        # if not has_informative_content(webpage_text):
-        #     return links
-
         # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
         if is_page_duplicate(webpage_text):
             return links  
@@ -297,7 +292,7 @@ def extract_next_links(url, resp):
 
                 # Discard the fragment part if there is one
                 complete_url = urldefrag(complete_url)[0]
-
+                
                 # Add the new complete url to list of links
                 if complete_url:
                     links.append(complete_url)
@@ -349,37 +344,8 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz|txt|log|md|rst)$", parsed.path.lower())
 
     except TypeError:
         print ("TypeError for ", parsed)
         raise
-
-# def output_stats(filepath="report.txt"):
-#     # Will be used to output statistics of the crawler
-#     with open(filepath, "w") as f:
- 
-#         f.write("CRAWL STATISTICS\n\n")
- 
-#         # Unique pages 
-#         f.write(f"Total unique pages crawled: {len(unique_urls)}\n\n")
- 
-#         # Longest page by word count 
-#         if num_words_per_url:
-#             longest_url = max(num_words_per_url, key=num_words_per_url.get)
-#             f.write(f"Longest page: {longest_url}\n")
-#             f.write(f"Word count: {num_words_per_url[longest_url]}\n\n")
-#         else:
-#             f.write("No pages crawled yet.\n\n")
- 
-#         # Top 50 most common words, no stopwords 
-#         f.write("Top 50 most common words (stopwords excluded):\n")
-#         sorted_words = sorted(common_word_frequencies.items(), key=lambda x: x[1], reverse=True)
-#         for rank, (word, freq) in enumerate(sorted_words[:50], start=1):
-#             f.write(f"{rank:>2}. {word} ({freq})\n")
-#         f.write("\n")
- 
-#         # Subdomains in alphabetical order
-#         f.write("Subdomains found:\n")
-#         for subdomain in sorted(subdomains.keys()):
-#             f.write(f"{subdomain}, {subdomains[subdomain]}\n")
