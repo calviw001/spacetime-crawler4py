@@ -56,12 +56,12 @@ def has_informative_content(info):
         if w and w not in stopwords:
             meaningful_count += 1
 
-    return meaningful_count > 20   #Threshold but it can be different, just a basic checking of real content (pages are large so meaningful threashold)
+    return meaningful_count > 20 
     
 # filters based on known trap query and paths
 def param_filter(query, path):
-    blocked_queries = ['session', 'ssid', 'phpsessid', 'sid', 'jsessionid'] #'/datasets?orderBy=', 'token', 'auth'
-    blocked_paths = ['/login', '/private', '/raw-attachment/', '/zip-attachment/', '/wp-admin', '/phpmyadmin'] # '/admin', '/cgi-bin', '/administrator', '/admin/login', 
+    blocked_queries = ['session', 'ssid', 'phpsessid', 'sid', 'jsessionid'] 
+    blocked_paths = ['/login', '/private', '/raw-attachment/', '/zip-attachment/', '/wp-admin', '/phpmyadmin']
 
     if any(keyword in query for keyword in blocked_queries) or any(keyword in path for keyword in blocked_paths): 
         return False
@@ -71,7 +71,7 @@ def param_filter(query, path):
 # checks URL length and path depth
 def url_length_depth(url, path):
     depth = len([p for p in path.split('/') if p])
-    return not (len(url) > 300 or depth > 40) # OLD (len(url) > 200 or depth > 30)
+    return not (len(url) > 300 or depth > 40) 
 
 # detects repeating directory patterns such as /a/a/a and /a/b/a/b/a/b
 def has_repeating_paths(path):
@@ -119,12 +119,6 @@ def cms_pattern_trap(path, query):
         r'action=diff',
         r'action=edit',
         r'action=download'
-        # r'from=',
-        # r'precision=',
-        # r'ical=1',
-        # r'tribe__ecp_custom',
-        # r'filter%5b', # Checks URL-encoded "filter["
-        # r'filter\['   # Checks unencoded "filter["
     ]
 
     if any(re.search(pattern, query) for pattern in trap_queries):
@@ -143,7 +137,7 @@ def is_a_trap(url, parsed):
                     and has_repeating_paths(path)
                     and query_checker(query) 
                     and has_date_trap(path)
-                    and variants_trap(path, query) #increased by 500
+                    and variants_trap(path, query)
                     and cms_pattern_trap(path, query))
 
     except Exception as e:
@@ -152,7 +146,7 @@ def is_a_trap(url, parsed):
         return True
 
 def is_page_duplicate(page_text):
-    # Return true if the webage is a duplicate of a previously crawled webpage, and return false otherwise
+    # Return true if the webpage is a duplicate of a previously crawled webpage, and return false otherwise
 
     # Compute the hash of the provided webpage text
     page_hash = sha256(page_text.encode('utf-8')).hexdigest()
@@ -247,10 +241,6 @@ def extract_next_links(url, resp):
 
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
-
-        # If the webpage text is a duplicate of some previous webpage text that was already scraped, then return an empty list
-        # if is_page_duplicate(webpage_text):
-        #     return links  
 
         # Generate statistics for the webpages IF the webpage has informative content AND isn't a duplicate
         if has_informative_content(webpage_text) and not is_page_duplicate(webpage_text):
