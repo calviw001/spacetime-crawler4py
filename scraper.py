@@ -48,15 +48,10 @@ def scraper(url, resp):
 
 def has_informative_content(info):
     # Return true if the page has high textual information content, and return false otherwise
-    words = info.lower().split()
-    meaningful_count = 0
-
-    for w in words:
-        w = w.strip(".,!?;:\"()[]")
-        if w and w not in stopwords:
-            meaningful_count += 1
-
-    return meaningful_count > 20 
+    words = re.findall(r"[a-zA-Z]+", info.lower())
+    meaningful_count = sum(1 for w in words if w not in stopwords)
+    
+    return meaningful_count > 20
     
 # filters based on known trap query and paths
 def param_filter(query, path):
