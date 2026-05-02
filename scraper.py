@@ -75,11 +75,8 @@ def url_length_depth(url, path):
 
 # detects repeating directory patterns such as /a/a/a and /a/b/a/b/a/b
 def has_repeating_paths(path):
-    '''straight_repeat = re.search(r"(.+/)\1{2,}", path)
-    pattern_repeat = re.search(r'(/[^/]+)(/.*)?\1\1', path)
-    return not bool(straight_repeat or pattern_repeat)'''
     parts = path.split('/')
-    if any(parts[i] == parts[i+1] == parts[i+2] == parts[i+3] for i in range(len(parts)-2)):
+    if any(parts[i] == parts[i+1] == parts[i+2] == parts[i+3] for i in range(len(parts)-3)):
         return False
 
     return True
@@ -172,7 +169,7 @@ def word_is_valid(word):
     if not any(char.isalpha() for char in word):
         return False
 
-    if len(word) < 2 and word.lower() not in ['a', 'i', 'o']:  # A, I, and O are the only words that are a single character long.
+    if len(word) < 2 and word.lower() not in ['a', 'i']:  # A and I are the only meaningful words that are a single character long.
         return False
 
     return True
@@ -242,19 +239,19 @@ def extract_next_links(url, resp):
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
-        # Generate statistics for the webpages IF the webpage has informative content AND isn't a duplicate
+        # Defragmenting the current URL once for tracking below
+        defragged_url = urldefrag(url)[0]
+
+        # Track unique url regardless of quality
+        unique_urls.add(defragged_url)
+
+        # Generate rest of statistics for the webpages IF the webpage has informative content AND isn't a duplicate
         if has_informative_content(webpage_text) and not is_page_duplicate(webpage_text):
 
             # Collect all the words from the webpage INCLUDING stopwords for right now
             pattern = r"\b\S+\b"
             all_words = re.findall(pattern, webpage_text.lower())
             all_words = list((word for word in all_words if word_is_valid(word)))
-
-            # Defragmenting the current URL once for tracking below
-            defragged_url = urldefrag(url)[0]
-
-            # Track unique url
-            unique_urls.add(defragged_url)
 
             # Track word count per webpage INCLUDING stopwords
             num_words_per_url[defragged_url] = len(all_words)
@@ -289,7 +286,7 @@ def extract_next_links(url, resp):
 
     except Exception as e:
         # Print an error message if fail to extract links
-        print(f"Failed to extract links from url {url}")
+        print(f"Failed to extract links from url {url}: {e}")
 
     return links
 
