@@ -242,19 +242,19 @@ def extract_next_links(url, resp):
         # ...and then get the webpage text
         webpage_text = " ".join(soup.get_text().replace("\n", " ").split())
 
-        # Generate statistics for the webpages IF the webpage has informative content AND isn't a duplicate
+        # Defragmenting the current URL once for tracking below
+        defragged_url = urldefrag(url)[0]
+
+        # Track unique url regardless of quality
+        unique_urls.add(defragged_url)
+
+        # Generate rest of statistics for the webpages IF the webpage has informative content AND isn't a duplicate
         if has_informative_content(webpage_text) and not is_page_duplicate(webpage_text):
 
             # Collect all the words from the webpage INCLUDING stopwords for right now
             pattern = r"\b\S+\b"
             all_words = re.findall(pattern, webpage_text.lower())
             all_words = list((word for word in all_words if word_is_valid(word)))
-
-            # Defragmenting the current URL once for tracking below
-            defragged_url = urldefrag(url)[0]
-
-            # Track unique url
-            unique_urls.add(defragged_url)
 
             # Track word count per webpage INCLUDING stopwords
             num_words_per_url[defragged_url] = len(all_words)
